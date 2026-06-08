@@ -25,27 +25,98 @@ button:hover {
 
 .page {
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   padding: 24px;
 }
 
-.library-card {
+.library-container {
   width: 100%;
-  max-width: 500px;
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  max-width: 900px;
+  margin: 0 auto;
 }
 
-.library-card h1 {
-  margin-top: 0;
+.library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+}
+
+.library-header h1 {
+  margin: 0 0 8px;
   font-size: 32px;
 }
 
-.library-card p {
-  line-height: 1.5;
+.library-header p {
+  margin: 0;
   color: #52525b;
+  line-height: 1.5;
+}
+
+.document-list {
+  display: grid;
+  gap: 16px;
+}
+
+.document-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+}
+
+.document-card h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.document-card p {
+  margin: 0 0 12px;
+  color: #52525b;
+}
+
+.document-card small {
+  color: #71717a;
+}
+
+.progress-bar {
+  width: 260px;
+  height: 8px;
+  background: #e4e4e7;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #2563eb;
+}
+
+@media (max-width: 640px) {
+  .library-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .document-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .progress-bar {
+    width: 100%;
+  }
+
+  button {
+    width: 100%;
+  }
 }
