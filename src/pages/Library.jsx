@@ -1,31 +1,6 @@
 import DocumentCard from '../components/DocumentCard';
 
-function Library() {
-  const documents = [
-    {
-      id: 1,
-      title: 'Manual de React',
-      totalPages: 120,
-      lastPage: 15,
-    },
-    {
-      id: 2,
-      title: 'Guia de JavaScript',
-      totalPages: 80,
-      lastPage: 8,
-    },
-    {
-      id: 3,
-      title: 'Libro de Base de Datos',
-      totalPages: 200,
-      lastPage: 64,
-    },
-  ];
-
-  function handleRead(document) {
-    alert(`Abriendo: ${document.title}`);
-  }
-
+function Library({ documents, onRead }) {
   return (
     <main className="page">
       <section className="library-container">
@@ -48,7 +23,7 @@ function Library() {
               title={document.title}
               totalPages={document.totalPages}
               lastPage={document.lastPage}
-              onRead={() => handleRead(document)}
+              onRead={() => onRead(document)}
             />
           ))}
         </div>
