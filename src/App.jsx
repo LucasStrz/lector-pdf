@@ -1,28 +1,47 @@
 import { useState } from 'react';
+
 import Library from './pages/Library';
 import Reader from './pages/Reader';
 
+import {
+  getAllProgress,
+  saveDocumentProgress,
+} from './services/progressService';
+
+const INITIAL_DOCUMENTS = [
+  {
+    id: 1,
+    title: 'Manual de React',
+    totalPages: 120,
+    lastPage: 15,
+  },
+  {
+    id: 2,
+    title: 'Guia de JavaScript',
+    totalPages: 80,
+    lastPage: 8,
+  },
+  {
+    id: 3,
+    title: 'Libro de Base de Datos',
+    totalPages: 200,
+    lastPage: 64,
+  },
+];
+
 function App() {
-  const [documents, setDocuments] = useState([
-    {
-      id: 1,
-      title: 'Manual de React',
-      totalPages: 120,
-      lastPage: 15,
-    },
-    {
-      id: 2,
-      title: 'Guia de JavaScript',
-      totalPages: 80,
-      lastPage: 8,
-    },
-    {
-      id: 3,
-      title: 'Libro de Base de Datos',
-      totalPages: 200,
-      lastPage: 64,
-    },
-  ]);
+  const [documents, setDocuments] = useState(() => {
+    const savedProgress = getAllProgress();
+
+    return INITIAL_DOCUMENTS.map((document) => {
+      const savedPage = savedProgress[document.id];
+
+      return {
+        ...document,
+        lastPage: savedPage ?? document.lastPage,
+      };
+    });
+  });
 
   const [selectedDocument, setSelectedDocument] = useState(null);
 
@@ -35,6 +54,8 @@ function App() {
   }
 
   function handleUpdatePage(documentId, newPage) {
+    saveDocumentProgress(documentId, newPage);
+
     const updatedDocuments = documents.map((document) => {
       if (document.id === documentId) {
         return {
