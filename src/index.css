@@ -2,6 +2,46 @@
   box-sizing: border-box;
 }
 
+.pdf-viewer.pdf-canvas-viewer {
+  overflow: auto;
+  padding: 16px;
+  background: #e4e4e7;
+}
+
+.pdf-canvas-viewer canvas {
+  display: block;
+  margin: 0 auto;
+  background: white;
+}
+
+.zoom-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reader-controls {
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.reader-controls button, .reader-header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.reader-header h1, .document-card h2, .document-card small {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .zoom-controls button { width: 44px; padding: 10px; }
+  .page-form input { min-width: 0; width: 64px; }
+  .page-form button { width: auto; }
+}
+
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;

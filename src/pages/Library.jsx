@@ -5,6 +5,8 @@ import DocumentCard from '../components/DocumentCard';
 function Library({
   documents,
   isLoading,
+  isImporting,
+  importMessage,
   errorMessage,
   onAddDocuments,
   onRead,
@@ -38,18 +40,20 @@ function Library({
             </p>
           </div>
 
-          <button onClick={openFilePicker}>Agregar PDF</button>
+          <button disabled={isImporting || isLoading} onClick={openFilePicker}>{isImporting ? 'Importando...' : 'Agregar PDF'}</button>
           <input
             ref={fileInputRef}
             className="file-input"
             type="file"
             accept="application/pdf,.pdf"
             multiple
+            disabled={isImporting || isLoading}
             onChange={handleFileChange}
           />
         </div>
 
-        {errorMessage && <p className="status-message error">{errorMessage}</p>}
+        {importMessage && <p role="status" className="status-message">{importMessage}</p>}
+        {errorMessage && <p role="alert" className="status-message error" style={{ whiteSpace: 'pre-line' }}>{errorMessage}</p>}
 
         {isLoading ? (
           <p className="status-message">Cargando biblioteca...</p>
@@ -57,7 +61,7 @@ function Library({
           <div className="empty-state">
             <h2>Aun no hay PDFs guardados</h2>
             <p>Agrega tu primer documento para empezar a leer.</p>
-            <button onClick={openFilePicker}>Seleccionar PDF</button>
+            <button disabled={isImporting} onClick={openFilePicker}>Seleccionar PDF</button>
           </div>
         ) : (
           <div className="document-list">

@@ -1,166 +1,116 @@
-import { useEffect, useState } from 'react';
-
+import { useEffect, useRef, useState } from 'react';
 import Library from './pages/Library';
 import Reader from './pages/Reader';
-
 import {
-  createDocumentFromFile,
-  deleteStoredDocument,
-  getStoredDocuments,
-  saveDocument,
-  updateStoredDocumentProgress,
+  createDocumentFromFile, deleteStoredDocument, getStoredDocuments,
+  saveDocument, storageErrorMessage, updateStoredDocumentProgress,
 } from './services/documentService';
-import {
-  getAllProgress,
-  saveDocumentProgress,
-} from './services/progressService';
 
 function App() {
   const [documents, setDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [importMessage, setImportMessage] = useState('');
+  const busyRef = useRef(false);
+  const queueRef = useRef(Promise.resolve());
+  const pendingRef = useRef(0);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadDocuments() {
-      try {
-        const savedProgress = getAllProgress();
-        const storedDocuments = await getStoredDocuments();
-
-        if (!isMounted) {
-          return;
-        }
-
-        setDocuments(
-          storedDocuments.map((document) => ({
-            ...document,
-            lastPage: savedProgress[document.id] ?? document.lastPage,
-          }))
-        );
-      } catch (error) {
-        console.error('Error al cargar documentos:', error);
-
-        if (isMounted) {
-          setErrorMessage('No se pudo cargar la biblioteca local.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadDocuments();
-
-    return () => {
-      isMounted = false;
-    };
+    let active = true;
+    getStoredDocuments().then(items => { if (active) setDocuments(items); })
+      .catch(error => { if (active) setErrorMessage(storageErrorMessage(error)); })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
   }, []);
 
-  function handleRead(document) {
-    setSelectedDocument(document);
+  useEffect(() => {
+    function warnBeforeClose(event) {
+      if (busyRef.current || pendingRef.current) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', warnBeforeClose);
+    return () => window.removeEventListener('beforeunload', warnBeforeClose);
+  }, []);
+
+  function applySavedDocument(updated) {
+    setDocuments(items => items.map(item => item.id === updated.id ? updated : item));
+    setSelectedDocument(item => item?.id === updated.id ? updated : item);
   }
 
-  function handleBackToLibrary() {
-    setSelectedDocument(null);
+  function persistProgress(id, page, totalPages) {
+    pendingRef.current++;
+    setIsSaving(true);
+    setErrorMessage('');
+    // Serialize writes so older updates cannot overwrite newer progress.
+    const operation = queueRef.current.then(() => updateStoredDocumentProgress(id, page, totalPages));
+    queueRef.current = operation.catch(() => {});
+    operation.then(applySavedDocument).catch(error => setErrorMessage(storageErrorMessage(error)))
+      .finally(() => {
+        pendingRef.current--;
+        setIsSaving(pendingRef.current > 0);
+      });
   }
 
   async function handleAddDocuments(files) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setIsImporting(true);
     setErrorMessage('');
-
+    setImportMessage('');
+    let added = 0;
+    const failures = [];
     try {
-      const newDocuments = await Promise.all(
-        files.map((file) => createDocumentFromFile(file))
-      );
-
-      await Promise.all(newDocuments.map((document) => saveDocument(document)));
-
-      setDocuments((currentDocuments) => [
-        ...newDocuments,
-        ...currentDocuments,
-      ]);
-    } catch (error) {
-      console.error('Error al agregar PDF:', error);
-      setErrorMessage(error.message || 'No se pudo agregar el PDF.');
-    }
-  }
-
-  function handleUpdatePage(documentId, newPage) {
-    saveDocumentProgress(documentId, newPage);
-    updateStoredDocumentProgress(documentId, newPage).catch((error) => {
-      console.error('Error al guardar progreso:', error);
-      setErrorMessage('No se pudo guardar el progreso local.');
-    });
-
-    setDocuments((currentDocuments) =>
-      currentDocuments.map((document) => {
-        if (document.id === documentId) {
-          return {
-            ...document,
-            lastPage: newPage,
-            updatedAt: new Date().toISOString(),
-          };
+      for (const file of files) {
+        try {
+          const document = await createDocumentFromFile(file);
+          await saveDocument(document);
+          setDocuments(items => [document, ...items]);
+          added++;
+        } catch (error) {
+          failures.push(file.name + ': ' + storageErrorMessage(error));
         }
-
-        return document;
-      })
-    );
-
-    setSelectedDocument((currentDocument) => {
-      if (currentDocument?.id !== documentId) {
-        return currentDocument;
       }
-
-      return {
-        ...currentDocument,
-        lastPage: newPage,
-        updatedAt: new Date().toISOString(),
-      };
-    });
-  }
-
-  async function handleDeleteDocument(documentId) {
-    setErrorMessage('');
-
-    try {
-      await deleteStoredDocument(documentId);
-
-      setDocuments((currentDocuments) =>
-        currentDocuments.filter((document) => document.id !== documentId)
-      );
-
-      if (selectedDocument?.id === documentId) {
-        setSelectedDocument(null);
-      }
-    } catch (error) {
-      console.error('Error al eliminar PDF:', error);
-      setErrorMessage('No se pudo eliminar el PDF.');
+      setImportMessage(added + ' PDF(s) guardados. ' + failures.length + ' archivo(s) fallidos.');
+      setErrorMessage(failures.join('\n'));
+    } finally {
+      busyRef.current = false;
+      setIsImporting(false);
     }
   }
 
-  if (selectedDocument) {
-    return (
-      <Reader
-        document={selectedDocument}
-        onBack={handleBackToLibrary}
-        onUpdatePage={handleUpdatePage}
-        errorMessage={errorMessage}
-      />
-    );
+  async function handleDeleteDocument(id) {
+    setErrorMessage('');
+    try {
+      await deleteStoredDocument(id);
+      setDocuments(items => items.filter(item => item.id !== id));
+    } catch (error) { setErrorMessage(storageErrorMessage(error)); }
   }
 
-  return (
-    <Library
-      documents={documents}
-      isLoading={isLoading}
-      errorMessage={errorMessage}
-      onAddDocuments={handleAddDocuments}
-      onRead={handleRead}
-      onDeleteDocument={handleDeleteDocument}
-    />
-  );
+  if (selectedDocument) return <Reader
+    key={selectedDocument.id}
+    document={selectedDocument}
+    isSaving={isSaving}
+    onPdfLoaded={(id, total) => {
+      if (selectedDocument.totalPages !== total ||
+          selectedDocument.lastPage < 1 || selectedDocument.lastPage > total) {
+        persistProgress(id, undefined, total);
+      }
+    }}
+    onBack={() => setSelectedDocument(null)}
+    onUpdatePage={(id, page) => persistProgress(id, page)}
+    errorMessage={errorMessage}
+  />;
+
+  return <Library documents={documents} isLoading={isLoading}
+    isImporting={isImporting} importMessage={importMessage}
+    errorMessage={errorMessage} onAddDocuments={handleAddDocuments}
+    onRead={document => { setErrorMessage(''); setSelectedDocument(document); }}
+    onDeleteDocument={handleDeleteDocument} />;
 }
 
 export default App;
