@@ -1,10 +1,10 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import { pdfjs } from 'react-pdf';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-GlobalWorkerOptions.workerSrc = workerUrl;
+pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export async function loadPdf(file) {
-  return getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+  return pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
 }
 
 export async function getPdfPageCount(file) {

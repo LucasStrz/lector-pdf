@@ -164,3 +164,20 @@ export function updateStoredDocumentProgress(documentId, page, totalPages) {
 export function deleteStoredDocument(documentId) {
   return runTransaction('readwrite', (store) => store.delete(documentId));
 }
+
+export function renameStoredDocument(documentId, title) {
+  const trimmedTitle = title.trim();
+  if (!trimmedTitle || trimmedTitle.length > 120) {
+    return Promise.reject(new Error('El titulo debe tener entre 1 y 120 caracteres.'));
+  }
+  return runTransaction('readwrite', (store, setResult) => {
+    const request = store.get(documentId);
+    request.onsuccess = () => {
+      if (!request.result) { store.transaction.abort(); return; }
+      const updated = { ...request.result, title: trimmedTitle, updatedAt: new Date().toISOString() };
+      store.put(updated);
+      setResult(updated);
+    };
+    return request;
+  });
+}

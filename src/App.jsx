@@ -3,7 +3,7 @@ import Library from './pages/Library';
 import Reader from './pages/Reader';
 import {
   createDocumentFromFile, deleteStoredDocument, getStoredDocuments,
-  saveDocument, storageErrorMessage, updateStoredDocumentProgress,
+  saveDocument, storageErrorMessage, updateStoredDocumentProgress, renameStoredDocument,
 } from './services/documentService';
 
 function App() {
@@ -14,6 +14,7 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [importMessage, setImportMessage] = useState('');
+  const [libraryView, setLibraryView] = useState({ query: '', sort: 'recent' });
   const busyRef = useRef(false);
   const queueRef = useRef(Promise.resolve());
   const pendingRef = useRef(0);
@@ -38,8 +39,9 @@ function App() {
   }, []);
 
   function applySavedDocument(updated) {
-    setDocuments(items => items.map(item => item.id === updated.id ? updated : item));
-    setSelectedDocument(item => item?.id === updated.id ? updated : item);
+    // Progress writes return cloned Blobs; retain the source identity for the viewer.
+    setDocuments(items => items.map(item => item.id === updated.id ? { ...updated, file: item.file } : item));
+    setSelectedDocument(item => item?.id === updated.id ? { ...updated, file: item.file } : item);
   }
 
   function persistProgress(id, page, totalPages) {
@@ -85,10 +87,19 @@ function App() {
 
   async function handleDeleteDocument(id) {
     setErrorMessage('');
+    pendingRef.current++;
     try {
       await deleteStoredDocument(id);
       setDocuments(items => items.filter(item => item.id !== id));
-    } catch (error) { setErrorMessage(storageErrorMessage(error)); }
+    } finally { pendingRef.current--; }
+  }
+
+  async function handleRenameDocument(id, title) {
+    pendingRef.current++;
+    try {
+      const updated = await renameStoredDocument(id, title);
+      applySavedDocument(updated);
+    } finally { pendingRef.current--; }
   }
 
   if (selectedDocument) return <Reader
@@ -107,10 +118,11 @@ function App() {
   />;
 
   return <Library documents={documents} isLoading={isLoading}
+    viewState={libraryView} onViewStateChange={setLibraryView}
     isImporting={isImporting} importMessage={importMessage}
     errorMessage={errorMessage} onAddDocuments={handleAddDocuments}
     onRead={document => { setErrorMessage(''); setSelectedDocument(document); }}
-    onDeleteDocument={handleDeleteDocument} />;
+    onDeleteDocument={handleDeleteDocument} onRenameDocument={handleRenameDocument} />;
 }
 
 export default App;
